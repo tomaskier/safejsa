@@ -1,0 +1,19 @@
+# config.yaml: local only, listed in .gitignore. Copy this file to config.yaml.
+# Environment variables override these values, e.g. SAFEJSA_LLM__MODEL=qwen3.5:9b.
+llm:
+  base_url: http://localhost:11434/v1   # Ollama for Windows
+  api_key: local                        # any string; Ollama ignores it
+  model: qwen3.5:4b                     # confirm the exact tag with `ollama list`
+  temperature: 0.2
+harness: v1                             # used by safejsa review and the mail worker
+best_harness: v1                        # used by eval config D; update after hill-climbing
+email:
+  imap_host: imap.gmail.com
+  smtp_host: smtp.gmail.com
+  address: "your-demo-account@gmail.com"
+  app_password: "..."                   # Gmail app password, never your main password
+  allowed_senders: ["you@example.com"]
+  poll_seconds: 120
+langsmith:
+  api_key: "..."
+  project: safejsa

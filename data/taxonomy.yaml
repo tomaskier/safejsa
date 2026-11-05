@@ -1,0 +1,36 @@
+# Hazard taxonomy: ten category IDs used in the answer key, ReviewReport and scoring.
+# bsee_tags lists the BSEE Safety Alert category tags that map to each ID (matched
+# case-insensitively). A tag may map to more than one ID. Ingest sends unmapped tags to
+# `other` and prints them so they can be added here. The tag lists are a starting point
+# and get refined against the real BSEE tags in build phase 1.
+categories:
+  lifting:
+    description: Crane operations, rigging, tag lines and dropped or swinging loads
+    bsee_tags: [Cranes/Lifting, Critical Lifts, Tag Lines, Dropped Objects, Rigging]
+  hot_work_fire:
+    description: Fire, explosion, welding, burning and other ignition sources
+    bsee_tags: [Fire, Explosion, Hot Work, Welding, Burning]
+  gas_h2s:
+    description: H2S, hydrocarbon gas releases and chemical exposure
+    bsee_tags: [H2S, Gas Release, Chemical Exposure]
+  electrical:
+    description: Electrical shock, arc flash, isolation and power failures
+    bsee_tags: [Electrical, Arc Flash, Power Outage]
+  pressure_energy:
+    description: Process safety, trapped pressure and other stored energy
+    bsee_tags: [Process Safety, Pressure Release, Stored Energy, Lockout/Tagout]
+  falls_openings:
+    description: Falls from height, open holes, damaged grating and fall protection
+    bsee_tags: [Grating/Open Holes, Falls, Fall Protection, Working at Heights]
+  hand_injury:
+    description: Hand and finger injuries, pinch points, hand tools and PPE
+    bsee_tags: [Hand Injuries, PPE, Hand Tools, Pinch Points]
+  equipment_failure:
+    description: Component and equipment failures, including manufacturer deficiencies
+    bsee_tags: [Component Failures, Equipment, Manufacturer Deficiency]
+  marine_weather_aviation:
+    description: Weather, vessel operations, personnel transfer, aviation and helidecks
+    bsee_tags: [Weather, Aviation, Vessel Operations, Helideck, Personnel Transfer]
+  well_operations:
+    description: Well operations and well control, BOP/LMRP and pipe handling
+    bsee_tags: [Well Operations, Well Control, BOP/LMRP, Pipe Handling]

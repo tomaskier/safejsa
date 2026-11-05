@@ -1,0 +1,14 @@
+# Local settings and secrets
+config.yaml
+
+# Downloads and per-review output
+data/cache/
+runs/
+
+# Python and tooling
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
