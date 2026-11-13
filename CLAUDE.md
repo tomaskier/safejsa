@@ -24,8 +24,9 @@ uv run ruff check            # lint
 - All model calls go through one `ChatOpenAI` client pointed at Ollama (`llm.base_url`).
   No paid APIs.
 - One short agent call per JSA step; code assembles the `ReviewReport`.
-- Deep Agents first; switch the per-step call to plain LangGraph only under the phase 3
-  rule in SPEC.md, and record it in `HARNESS_CHANGELOG.md`.
+- The per-step call is a plain LangGraph agent (`create_agent`). Deep Agents was tried first
+  and was too heavy for the 4B model on CPU (SPEC.md, Rules; HARNESS_CHANGELOG.md).
+- Ollama calls need `reasoning_effort: none`; with thinking on, one call takes minutes.
 - Secrets only through `config.py`. Never commit `config.yaml`, `data/cache/` or `runs/`.
 - Tests use the fakes in `tests/fakes.py`; no model server, network or real mailbox.
 - `agent.py` never imports `mcp_server.py`; it reaches BSEE data only through MCP.

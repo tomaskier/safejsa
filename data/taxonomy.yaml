@@ -1,24 +1,29 @@
 # Hazard taxonomy: ten category IDs used in the answer key, ReviewReport and scoring.
 # bsee_tags lists the BSEE Safety Alert category tags that map to each ID (matched
 # case-insensitively). A tag may map to more than one ID. Ingest sends unmapped tags to
-# `other` and prints them so they can be added here. The tag lists are a starting point
-# and get refined against the real BSEE tags in build phase 1.
+# `other` and prints them so they can be added here. The tag lists
+# were refined against the real BSEE tags in build phase 1. These broad tags stay
+# unmapped on purpose and go to `other`: Personnel Safety, General, Other, Production,
+# Subsea, Spill/Pollution, Living Quarters, SEMS, Contractor Management, Cybersecurity,
+# Lifesaving Equipment, Equipment Installations, Equipment Startup.
 categories:
   lifting:
     description: Crane operations, rigging, tag lines and dropped or swinging loads
     bsee_tags: [Cranes/Lifting, Critical Lifts, Tag Lines, Dropped Objects, Rigging]
   hot_work_fire:
     description: Fire, explosion, welding, burning and other ignition sources
-    bsee_tags: [Fire, Explosion, Hot Work, Welding, Burning]
+    bsee_tags: [Fire, Explosion, Hot Work, Welding, Burning, Static Discharge]
   gas_h2s:
     description: H2S, hydrocarbon gas releases and chemical exposure
     bsee_tags: [H2S, Gas Release, Chemical Exposure]
   electrical:
     description: Electrical shock, arc flash, isolation and power failures
-    bsee_tags: [Electrical, Arc Flash, Power Outage]
+    bsee_tags: [Electrical, Arc Flash, Power Outage, Batteries, Short-Circuits, Grounding,
+      Static Discharge]
   pressure_energy:
     description: Process safety, trapped pressure and other stored energy
-    bsee_tags: [Process Safety, Pressure Release, Stored Energy, Lockout/Tagout]
+    bsee_tags: [Process Safety, Pressure Release, Stored Energy, Lockout/Tagout,
+      Pigging Operations]
   falls_openings:
     description: Falls from height, open holes, damaged grating and fall protection
     bsee_tags: [Grating/Open Holes, Falls, Fall Protection, Working at Heights]
@@ -27,10 +32,12 @@ categories:
     bsee_tags: [Hand Injuries, PPE, Hand Tools, Pinch Points]
   equipment_failure:
     description: Component and equipment failures, including manufacturer deficiencies
-    bsee_tags: [Component Failures, Equipment, Manufacturer Deficiency]
+    bsee_tags: [Component Failures, Equipment, Equipment Maintenance, Structural,
+      Manufacturer Deficiency Alert / Safety Notice, BOP/LMRP Failures]
   marine_weather_aviation:
     description: Weather, vessel operations, personnel transfer, aviation and helidecks
-    bsee_tags: [Weather, Aviation, Vessel Operations, Helideck, Personnel Transfer]
+    bsee_tags: [Weather, Aviation, Vessel Operations, Helideck, Personnel Transfers,
+      Dynamic Positioning]
   well_operations:
     description: Well operations and well control, BOP/LMRP and pipe handling
-    bsee_tags: [Well Operations, Well Control, BOP/LMRP, Pipe Handling]
+    bsee_tags: [Well Operations, Well Control, BOP/LMRP Failures, Pipe Handling]

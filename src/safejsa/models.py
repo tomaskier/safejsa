@@ -76,6 +76,18 @@ class ReviewRun(BaseModel):  # returned by agent.review(); used by verify.py and
     seconds: float  # measured locally
 
 
+class Alert(BaseModel):  # one line of data/alerts.jsonl
+    alert_number: int  # unique in the file
+    title: str
+    date: str | None  # ISO date from the listing; None when BSEE gives none
+    bsee_tags: list[str]  # category tags exactly as BSEE lists them
+    categories: list[HazardCategory] = Field(min_length=1)  # ["other"] when nothing maps
+    summary: str  # alert text before the recommendations
+    recommendations: str  # empty when the alert has no recommendations section
+    url: str  # the alert's page on bsee.gov
+    pdf_url: str
+
+
 # --- JSA parsing -------------------------------------------------------------------------
 
 JSA_HEADER = ("#", "Step", "Hazards", "Controls")

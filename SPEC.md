@@ -21,6 +21,7 @@ Nov 6, 2026 · @T
 - All model calls go through one OpenAI-compatible client (`ChatOpenAI`) pointed at Ollama's endpoint in `llm.base_url`. No paid APIs.
 - Agent design: code loops over the JSA steps and makes one short agent call per step; code then assembles the `ReviewReport`. Do not run the whole JSA as one long agent conversation.
 - Agent framework: use LangChain Deep Agents for each per-step call first. If, in phase 3, the 4B model fails to call tools or to return a valid `StepReview` on 2 of the 3 fixture JSAs, switch the per-step call to a plain LangGraph tool-calling agent with the same tools, inputs and outputs, and record the switch in `HARNESS_CHANGELOG.md`.
+- **Decided in phase 3 (Nov 12, 2026): the per-step call uses the plain LangGraph agent** (`langchain.agents.create_agent`). Deep Agents passed fixture 1 but was too heavy for the 4B model on CPU: its built-in instructions and tools filled most of Ollama's 4096-token context, and 4 steps took 44 minutes against 10.6 minutes for the plain agent, with equal quality. That put the overnight evaluation budget out of reach. The user chose the switch under the "too heavy" clause of **The four loops**, loop 1. See `HARNESS_CHANGELOG.md`.
 - Read secrets only through `config.py`. Never commit `config.yaml`, `data/cache/` or `runs/`.
 - Tests must not need a model server, the network or a real mailbox. Use the fakes in `tests/fakes.py`.
 - The agent reaches BSEE data only through MCP: `agent.py` never imports `mcp_server.py`.
@@ -40,7 +41,7 @@ Nov 6, 2026 · @T
 
 ## Overview
 
-SafeJSA is an AI agent that reviews offshore job safety analyses (JSAs). You email it a JSA; it replies with missing hazards, weak controls and clarification questions, each backed by a real BSEE Safety Alert. It runs entirely on a CPU laptop with a local Qwen model, and it applies the four loops from Loop Engineering: agent, verification, event-driven (email) and hill-climbing.
+SafeJSA is an AI agent that reviews offshore job safety analyses (JSAs). You email it a JSA; it replies with missing hazards, weak controls and clarification questions, each backed by a real BSEE Safety Alert. It runs entirely on a laptop with a local Qwen model, and it applies the four loops from Loop Engineering: agent, verification, event-driven (email) and hill-climbing.
 
 **Problem.** A JSA breaks a job into steps and lists each step's hazards and controls. They are often written quickly from templates, and the hazard that causes an incident is frequently the one nobody wrote down. Regulators have published hundreds of offshore incident lessons, but nobody cross-checks every JSA against them.
 
@@ -60,7 +61,7 @@ SafeJSA is an AI agent that reviews offshore job safety analyses (JSAs). You ema
 
 **Constraints**
 
-- Native Windows 10, CPU only, 16 GB RAM: the agent runs a small local model through Ollama for Windows, so tool design stays simple and runs stay few.
+- Native Windows 10 laptop with no dedicated GPU (designed for 16 GB RAM, CPU only): the agent runs a small local model through Ollama for Windows, so tool design stays simple and runs stay few. The development laptop (Intel Core Ultra 7 258V, 32 GB) runs the model on its integrated Intel Arc 140V GPU through Ollama's Vulkan backend (`OLLAMA_IGPU_ENABLE=1`), about 3 times faster per call than its CPU; everything also works on CPU only, just slower.
 - Shortest path to a finished portfolio piece: about 3 weeks part-time.
 - Target audience: AI engineering roles, so the README leads with MCP, the loops and the eval results.
 - Released under the MIT license.
@@ -71,7 +72,7 @@ Five parts in a line: an emailed JSA reaches a mail worker, a local AI agent rev
 
 &#91;embedded content: SafeJSA at a glance · 5 parts, 2 feedback loops\]
 
-The agent only reaches the alerts through the MCP tools. A failed check sends the review back for another attempt, and LangSmith traces from evaluation runs drive improvements to the agent. Everything runs on one CPU laptop.
+The agent only reaches the alerts through the MCP tools. A failed check sends the review back for another attempt, and LangSmith traces from evaluation runs drive improvements to the agent. Everything runs on one laptop.
 
 **The pipeline in text** (authoritative over the diagram)
 
@@ -102,10 +103,11 @@ Two datasets: a public knowledge base of offshore incident lessons, and a small 
 Ingestion steps:
 
 1. Crawl the alert listing pages politely (rate-limited, cached in `data/cache/`) and download each alert PDF.
-2. Extract text with pypdf and keep metadata: number, title, date, BSEE category tags, URL.
-3. Split each alert's text into summary and recommendations, and map its tags to taxonomy IDs.
-4. Write one JSON line per alert to `data/alerts.jsonl`. The MCP server builds a BM25 index from this file at start-up.
-5. Vector search is left out of version 1. It is a candidate change for the hill-climbing loop if keyword search misses too much.
+2. Keep only numbered Safety Alerts, so the alert number stays a unique integer key (see **Alert record**). The listing also holds Safety Bulletins, Joint Safety Alerts and non-safety notices such as scam alerts, and older regional series reuse numbers. Ingest therefore skips bulletins, joint alerts and scam notices, merges entries that repeat the same number and title, and skips every number that names more than one different alert. Skipped entries are printed with the reason.
+3. Extract text with pypdf and keep metadata: number, title, date, BSEE category tags, URL.
+4. Split each alert's text into summary and recommendations, and map its tags to taxonomy IDs. Alerts with no tags, which covers most alerts numbered below 300, get `other`.
+5. Write one JSON line per alert to `data/alerts.jsonl`. The MCP server builds a BM25 index from this file at start-up.
+6. Vector search is left out of version 1. It is a candidate change for the hill-climbing loop if keyword search misses too much.
 
 ### Test set: seeded JSAs
 
@@ -150,7 +152,7 @@ One FastMCP server makes the BSEE knowledge base usable by any MCP host: the Saf
 
 ## Models and configuration
 
-Everything runs locally on CPU through Ollama for Windows. The code uses one OpenAI-compatible chat client (`langchain-openai`'s `ChatOpenAI` with `base_url` set to Ollama's `/v1` endpoint). With 16 GB of RAM the default model is Qwen 3.5 4B.
+Everything runs locally through Ollama for Windows, on CPU or an integrated GPU (see **Constraints**). The code uses one OpenAI-compatible chat client (`langchain-openai`'s `ChatOpenAI` with `base_url` set to Ollama's `/v1` endpoint). With 16 GB of RAM the default model is Qwen 3.5 4B.
 
 | Job | Default model | Notes |
 | --- | --- | --- |
@@ -164,6 +166,7 @@ vLLM is not used. Its CPU backend runs only on Linux, and this project runs on n
 - Two tools with flat arguments and short descriptions.
 - Structured output through the OpenAI `response_format` JSON schema on Ollama's endpoint, plus one repair-and-retry if parsing fails.
 - Low temperature (0.2) and a hard cap on tool calls per step.
+- Thinking mode off (`llm.reasoning_effort: none`, sent as the OpenAI `reasoning_effort` parameter). With it on, Qwen 3.5 4B took 28 minutes for one 31-token answer on the development laptop; with it off, 5 seconds.
 - One short agent call per JSA step, so each prompt stays small and fits a modest context window.
 
 **`config.yaml`**
@@ -175,6 +178,7 @@ llm:
   api_key: local                        # any string; Ollama ignores it
   model: qwen3.5:4b                     # confirm the exact tag with `ollama list`
   temperature: 0.2
+  reasoning_effort: none                # turns off Qwen's thinking mode; it makes CPU calls take minutes
 harness: v1                             # used by safejsa review and the mail worker
 best_harness: v1                        # used by eval config D; update after hill-climbing
 email:
@@ -280,6 +284,23 @@ Config A uses the same schema. With tools off, its cited alert numbers come from
 
 The advisory notice is fixed text added by `models.report_to_markdown()`, not generated by the model.
 
+### Alert record (`data/alerts.jsonl`, `Alert` in `models.py`)
+
+One JSON object per line, written by `ingest.py` and read by `mcp_server.py` and `verify.py`.
+
+```python
+class Alert(BaseModel):
+    alert_number: int            # unique in the file
+    title: str
+    date: str | None             # ISO date from the listing; None when BSEE gives none
+    bsee_tags: list[str]         # category tags exactly as BSEE lists them
+    categories: list[HazardCategory] = Field(min_length=1)  # ["other"] when nothing maps
+    summary: str                 # alert text before the recommendations
+    recommendations: str         # empty when the alert has no recommendations section
+    url: str                     # the alert's page on bsee.gov
+    pdf_url: str
+```
+
 ### Answer key (`data/jsas/answer_key.yaml`)
 
 ```yaml
@@ -301,7 +322,7 @@ jsas:
 
 | Tool | Input | Output (JSON) |
 | --- | --- | --- |
-| `search_alerts` | `query: str`, `category: HazardCategory \| None = None`, `k: int = 5` (max 10) | list of `{alert_number, title, categories, snippet}` |
+| `search_alerts` | `query: str`, `category: HazardCategory \| None = None`, `k: int = 5` (max 10) | list of `{alert_number, title, date, categories, snippet}` |
 | `get_alert` | `number: int` | `{alert_number, title, date, categories, summary, recommendations, url}`, or an error if unknown |
 
 Resource: `bsee://checklist`. Prompt: `review_jsa(jsa_markdown)`.
@@ -336,9 +357,10 @@ This is the course's requirements-review agent applied to safety: a JSA replaces
 
 ### 1. Agent loop: review the JSA
 
-- Code loops over the JSA steps. Each step is one short call to a Deep Agents agent on `ChatOpenAI` (pointed at Ollama), with MCP tools loaded through `langchain-mcp-adapters`, which starts `safejsa mcp` over stdio once per review.
+- Code loops over the JSA steps. Each step is one short call to a plain LangGraph tool-calling agent (`create_agent`; Deep Agents was tried first, see **Rules**) on `ChatOpenAI` (pointed at Ollama), with MCP tools loaded through `langchain-mcp-adapters`, which starts `safejsa mcp` over stdio once per review.
 - Each call returns a `StepReview`; code merges them into the `ReviewReport`. From v2 on, a call may also load skill files added by hill-climbing.
-- If Deep Agents proves too heavy for the 4B model, the per-step call switches to a plain LangGraph agent (see **Rules**). The loop and the outputs do not change.
+- If Deep Agents proves too heavy for the 4B model, the per-step call switches to a plain LangGraph agent (see **Rules**). The loop and the outputs do not change. This switch was made in phase 3.
+- If the agent's last message is not a valid `StepReview`, one repair call with the `response_format` JSON schema turns its tool results and notes into one, with one retry. Config A (tools off) makes that JSON call directly.
 
 ### 2. Verification loop: check before replying
 
@@ -432,7 +454,7 @@ safejsa/
 │   ├── models.py            # Pydantic contracts, parse_jsa(), report_to_markdown()
 │   ├── ingest.py            # crawl BSEE pages, extract PDF text, write alerts.jsonl
 │   ├── mcp_server.py        # BM25 search over alerts.jsonl + FastMCP tools, resource, prompt
-│   ├── agent.py             # build the deep agent (ChatOpenAI + MCP over stdio), run a review
+│   ├── agent.py             # build the per-step agent (ChatOpenAI + MCP over stdio), run a review
 │   ├── verify.py            # rubric rules, judge, review-verify-retry loop
 │   ├── mail.py              # IMAP poll, allowlist, receipt, reply
 │   └── evals.py             # scoring, eval runs A–D, failure counts, README table
@@ -445,6 +467,7 @@ safejsa/
     ├── fixtures/            # 3 small JSAs, 5 sample alerts, a sample answer key
     ├── test_config.py       # file loading, defaults and env overrides
     ├── test_models.py       # parsing and Markdown rendering
+    ├── test_ingest.py       # listing parsing, alert selection, text split, tag mapping
     ├── test_mcp_server.py   # search and tool contracts
     ├── test_verify.py       # each code rule passes and fails
     └── test_evals.py        # scores match hand-computed values
@@ -454,7 +477,7 @@ safejsa/
 
 - `models.py` and `config.py` import nothing else from the package.
 - `agent.py` reaches alerts only through MCP. It never imports `mcp_server.py`.
-- `verify.py` may read `data/alerts.jsonl` to check that a cited alert exists (R1).
+- `verify.py` may read `data/alerts.jsonl` to check that a cited alert exists (R1) and to give the judge the cited alert's text (R4).
 - `cli.py` holds no logic; each command calls one function in another module.
 
 **Stack**
@@ -465,8 +488,8 @@ safejsa/
 | Language and tooling | Python 3.11+, uv, ruff, pytest, Typer |
 | Model server | Ollama for Windows, through its OpenAI-compatible API |
 | Search | rank-bm25 over `alerts.jsonl`; pypdf for extraction |
-| MCP | FastMCP over stdio, MCP Inspector |
-| Agent | LangChain Deep Agents (LangGraph fallback), langchain-openai, langchain-mcp-adapters |
+| MCP | FastMCP over stdio (from the `mcp` SDK, pinned below 2.0: version 2 renamed FastMCP, and langchain-mcp-adapters requires `mcp<2`), MCP Inspector |
+| Agent | LangGraph agent via `langchain.agents.create_agent` (Deep Agents tried first, too heavy on CPU), langchain-openai, langchain-mcp-adapters |
 | Tracing and evals | LangSmith |
 | Email | imap-tools, smtplib |
 
@@ -513,6 +536,7 @@ All earlier open questions are now decided: native Windows 10, Ollama only, repo
 
 - [ ] Install Ollama for Windows, pull the Qwen 3.5 4B model, and confirm its exact tag with `ollama list`.
 - [ ] Create a LangSmith API key.
+- [ ] Optional, for an Intel integrated GPU: set the user environment variable `OLLAMA_IGPU_ENABLE=1` (Vulkan is on by default in recent Ollama) and restart Ollama; `ollama ps` then shows `100% GPU`.
 
 **Set-up you do before phases 4 and 5**
 

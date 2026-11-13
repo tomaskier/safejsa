@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
@@ -32,6 +32,7 @@ class LLMConfig(_Section):
     api_key: SecretStr = SecretStr("local")
     model: str = "qwen3.5:4b"
     temperature: float = 0.2
+    reasoning_effort: Literal["none", "low", "medium", "high"] | None = "none"
 
 
 class EmailConfig(_Section):

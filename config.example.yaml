@@ -5,6 +5,7 @@ llm:
   api_key: local                        # any string; Ollama ignores it
   model: qwen3.5:4b                     # confirm the exact tag with `ollama list`
   temperature: 0.2
+  reasoning_effort: none                # turns off Qwen's thinking mode; it makes CPU calls take minutes
 harness: v1                             # used by safejsa review and the mail worker
 best_harness: v1                        # used by eval config D; update after hill-climbing
 email:
